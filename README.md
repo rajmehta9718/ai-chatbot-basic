@@ -16,3 +16,6 @@ Made AI respond in a structured (JSON) format such that the front-end can parse 
 ## Updates
 Added error handling, rate limiting, and validation checks to AI responses.
 Learned that reliability and availability are important for any AI integration.
+
+## Updates
+Polishing the Chatbot UI and making the app feel cleaner and more user-friendly.
