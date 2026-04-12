@@ -1,6 +1,7 @@
 from openai import OpenAI
 from dotenv import load_dotenv
 import json
+import time
 
 load_dotenv()
 client = OpenAI()
@@ -11,6 +12,9 @@ def validate_products_data(data):
 
     if not isinstance(data["products"], list):
         return False, "products must be a list"
+
+    if len(data["products"]) != 3:
+        return False, "products must contain exactly 3 items"
 
     for i, product in enumerate(data["products"]):
         if not isinstance(product, dict):
@@ -32,14 +36,15 @@ def validate_products_data(data):
 
     return True, "Valid"
 
-def get_products_info(user_input):
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {
-                    "role": "system",
-                    "content": """
+def get_products_info(user_input, max_retries=2):
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """
 You are a strict backend API.
 
 Rules:
@@ -50,10 +55,10 @@ Rules:
 - Follow the schema exactly
 - Return exactly 3 products
 """
-                },
-                {
-                    "role": "user",
-                    "content": f"""
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""
 User request: {user_input}
 
 Return ONLY valid JSON.
@@ -76,26 +81,27 @@ Schema:
   ]
 }}
 """
-                }
-            ]
-        )
+                    }
+                ]
+            )
 
-        output = response.choices[0].message.content
-        output = output.replace("```json", "").replace("```", "").strip()
+            output = response.choices[0].message.content
+            output = output.replace("```json", "").replace("```", "").strip()
 
-        data = json.loads(output)
+            data = json.loads(output)
 
-        is_valid, message = validate_products_data(data)
-        if not is_valid:
-            return {"error": message, "raw": data}
+            is_valid, message = validate_products_data(data)
+            if not is_valid:
+                raise ValueError(message)
 
-        return data
+            return data
 
-    except json.JSONDecodeError:
-        return {"error": "Could not parse JSON response"}
-
-    except Exception as e:
-        return {"error": str(e)}
+        except Exception as e:
+            if attempt < max_retries:
+                print(f"\nRetrying... attempt {attempt + 1} failed: {e}")
+                time.sleep(1)
+            else:
+                return {"error": str(e)}
 
 print("=" * 45)
 print("      AI Product Recommender")
