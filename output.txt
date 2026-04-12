@@ -86,4 +86,69 @@ You: exit
 
 Goodbye!
 
+7) JSON Array output: 
+You: send me the top 3 richest people in the world 
+
+AI Response:
+---------------------------------------------
+Product 1:
+  Product Name: Elon Musk
+  Price: 240000000000
+  Category: Technology
+
+Product 2:
+  Product Name: Bernard Arnault
+  Price: 220000000000
+  Category: Luxury Goods
+
+Product 3:
+  Product Name: Jeff Bezos
+  Price: 170000000000
+  Category: E-commerce
+
+---------------------------------------------
+
+You: thanks
+
+AI Response:
+---------------------------------------------
+Product 1:
+  Product Name: Wireless Mouse
+  Price: 25.99
+  Category: Electronics
+
+Product 2:
+  Product Name: Bluetooth Headphones
+  Price: 49.99
+  Category: Electronics
+
+Product 3:
+  Product Name: Smartphone Stand
+  Price: 15.0
+  Category: Accessories
+
+---------------------------------------------
+
+You: what?
+
+AI Response:
+---------------------------------------------
+Product 1:
+  Product Name: Product A
+  Price: 25.99
+  Category: Electronics
+
+Product 2:
+  Product Name: Product B
+  Price: 15.49
+  Category: Home Goods
+
+Product 3:
+  Product Name: Product C
+  Price: 0
+  Category: unknown
+
+---------------------------------------------
+
+You: exit
 
