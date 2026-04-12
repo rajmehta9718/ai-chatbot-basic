@@ -14,8 +14,13 @@ while True:
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "user", "content": user_input}
-        ]
+    {"role": "system", "content": "You are a funny assistant. Answer in a funny way.$
+    {"role": "user", "content": user_input}
+]
     )
-
+        
     print("AI:", response.choices[0].message.content)
+
+    
+        
+        
