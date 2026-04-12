@@ -152,3 +152,4 @@ Product 3:
 
 You: exit
 
+8) Added retry logic on validation failures or errors. App still prints clean results.
