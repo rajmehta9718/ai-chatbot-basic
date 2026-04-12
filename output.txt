@@ -43,3 +43,10 @@ Parsed Output:
 Product Name: Xiaomi Mi Electric Scooter Pro 2
 Price: 599.99
 Category: Electric Scooter
+
+5) Error handling, rate limiting and validation checks:
+//internet connection dropped
+You: Give any product information.
+Result: {'error': 'Connection error.'}
+
+
