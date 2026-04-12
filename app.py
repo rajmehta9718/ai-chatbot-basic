@@ -5,25 +5,34 @@ import json
 load_dotenv()
 client = OpenAI()
 
-def validate_product_data(data):
-    required_keys = ["product_name", "price", "category"]
+def validate_products_data(data):
+    if "products" not in data:
+        return False, "Missing key: products"
 
-    for key in required_keys:
-        if key not in data:
-            return False, f"Missing key: {key}"
+    if not isinstance(data["products"], list):
+        return False, "products must be a list"
 
-    if not isinstance(data["product_name"], str):
-        return False, "product_name must be a string"
+    for i, product in enumerate(data["products"]):
+        if not isinstance(product, dict):
+            return False, f"Item {i} must be an object"
 
-    if not isinstance(data["price"], (int, float)):
-        return False, "price must be a number"
+        required_keys = ["product_name", "price", "category"]
+        for key in required_keys:
+            if key not in product:
+                return False, f"Missing key '{key}' in item {i}"
 
-    if not isinstance(data["category"], str):
-        return False, "category must be a string"
+        if not isinstance(product["product_name"], str):
+            return False, f"product_name must be a string in item {i}"
+
+        if not isinstance(product["price"], (int, float)):
+            return False, f"price must be a number in item {i}"
+
+        if not isinstance(product["category"], str):
+            return False, f"category must be a string in item {i}"
 
     return True, "Valid"
 
-def get_product_info(user_input):
+def get_products_info(user_input):
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -39,7 +48,7 @@ Rules:
 - Do not include extra text
 - Do not include markdown or code blocks
 - Follow the schema exactly
-- If unsure, still return valid JSON
+- Return exactly 3 products
 """
                 },
                 {
@@ -50,6 +59,7 @@ User request: {user_input}
 Return ONLY valid JSON.
 
 Rules:
+- products must be a list of exactly 3 items
 - product_name must be a string
 - price must be a number
 - category must be a string
@@ -57,9 +67,13 @@ Rules:
 
 Schema:
 {{
-  "product_name": "string",
-  "price": 0,
-  "category": "string"
+  "products": [
+    {{
+      "product_name": "string",
+      "price": 0,
+      "category": "string"
+    }}
+  ]
 }}
 """
                 }
@@ -71,7 +85,7 @@ Schema:
 
         data = json.loads(output)
 
-        is_valid, message = validate_product_data(data)
+        is_valid, message = validate_products_data(data)
         if not is_valid:
             return {"error": message, "raw": data}
 
@@ -83,10 +97,10 @@ Schema:
     except Exception as e:
         return {"error": str(e)}
 
-print("=" * 40)
-print("       AI Product Assistant")
+print("=" * 45)
+print("      AI Product Recommender")
 print("Type 'exit' to quit")
-print("=" * 40)
+print("=" * 45)
 
 while True:
     user_input = input("\nYou: ").strip()
@@ -99,16 +113,19 @@ while True:
         print("Please enter something.")
         continue
 
-    result = get_product_info(user_input)
+    result = get_products_info(user_input)
 
     print("\nAI Response:")
-    print("-" * 40)
+    print("-" * 45)
 
     if "error" in result:
         print("Error:", result["error"])
     else:
-        print("Product Name:", result["product_name"])
-        print("Price:", result["price"])
-        print("Category:", result["category"])
+        for i, product in enumerate(result["products"], start=1):
+            print(f"Product {i}:")
+            print("  Product Name:", product["product_name"])
+            print("  Price:", product["price"])
+            print("  Category:", product["category"])
+            print()
 
-    print("-" * 40)
+    print("-" * 45)
