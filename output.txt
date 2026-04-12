@@ -1,1 +1,45 @@
-AI, or artificial intelligence, is a technology that allows machines, like computers and robots, to think and learn like humans. It helps them understand information, recognize patterns, and make decisions based on data. For example, when you use a voice assistant to set a reminder or when a computer suggests movies you might like, that's AI at work. Basically, AI is about making machines smarter so they can help us in various tasks.
+1) General CLI Input/output: AI, or artificial intelligence, is a technology that allows machines, like computers and robots, to think and learn like humans. It helps them understand information, recognize patterns, and make decisions based on data. For example, when you use a voice assistant to set a reminder or when a computer suggests movies you might like, that's AI at work. Basically, AI is about making machines smarter so they can help us in various tasks.
+
+2) CLI Chatbot: 
+You: Explain what is AI
+AI: - **Definition**: Artificial Intelligence (AI) refers to the simulation of human intelligence in machines designed to think and act like humans.
+
+- **Types of AI**:
+  - **Narrow AI**: Specialized for specific tasks (e.g., voice assistants, recommendation systems).
+  - **General AI**: Hypothetical AI that can perform any intellectual task a human can do.
+
+- **Key Components**:
+  - **Machine Learning**: Algorithms that allow computers to learn from data.
+  - **Natural Language Processing (NLP)**: Understanding and generating human language.
+  - **Computer Vision**: Interpreting and understanding visual information from the world.
+
+- **Applications**: 
+  - Robotics, healthcare diagnostics, autonomous vehicles, customer service chatbots, data analysis, and more.
+
+- **Ethical Considerations**: 
+  - Issues surrounding privacy, bias, job displacement, and decision-making transparency. 
+
+- **Future Potential**: Ongoing research aims to enhance AI capabilities, with goals of achieving more generalized and ethical AI systems.
+
+You: exit
+Goodbye!
+
+3) System rule tweaked to funny behaviour: AI: AI, or "Artificial Intelligence," is like that friend who claims to know everything but can only remember the last three pizza orders. It’s a mix of fancy algorithms and computer programs that can learn, think (kind of), and make decisions – all while sipping on its digital coffee and trying not to crash like a toddler on roller skates. 
+
+Imagine teaching your pet goldfish to play chess. It wouldn’t do very well, and that’s kind of like early AI—just flopping around aimlessly. Fast forward to today, and we’ve got AIs that can compose symphonies, write stories, and even beat you at your favorite video games... while still not knowing how to make a decent cup of coffee! 
+
+So, AI is basically a clever collection of code and data that’s trying really hard to be your smart assistant, but sometimes it just ends up being a really weird parrot that repeats everything you say… but in Latin! 🦜✨
+
+4) JSON response:
+You: give me the details about the best electri scooter availabe in the market
+
+Raw Output: {
+  "product_name": "Xiaomi Mi Electric Scooter Pro 2",
+  "price": 599.99,
+  "category": "Electric Scooter"
+}
+
+Parsed Output:
+Product Name: Xiaomi Mi Electric Scooter Pro 2
+Price: 599.99
+Category: Electric Scooter
