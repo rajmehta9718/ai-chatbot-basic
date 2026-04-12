@@ -153,3 +153,20 @@ Product 3:
 You: exit
 
 8) Added retry logic on validation failures or errors. App still prints clean results.
+=============================================
+      AI Product Recommender
+Type 'exit' to quit
+=============================================
+
+You: send me a list of top 3 most expensive cars
+
+Retrying... attempt 1 failed: Connection error.
+
+Retrying... attempt 2 failed: Connection error.
+
+AI Response:
+---------------------------------------------
+Error: Connection error.
+---------------------------------------------
+
+
