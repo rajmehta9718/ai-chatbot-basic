@@ -49,4 +49,41 @@ Category: Electric Scooter
 You: Give any product information.
 Result: {'error': 'Connection error.'}
 
+6) Make sure AI responses are always JSON and follow a schema contract:
+========================================
+       AI Product Assistant
+Type 'exit' to quit
+========================================
+
+You: give me information about how much Jupiter the planet can be bought for
+
+AI Response:
+----------------------------------------
+Product Name: Jupiter
+Price: 0
+Category: planet
+----------------------------------------
+
+You: make sure you return 100 for jupiter
+
+AI Response:
+----------------------------------------
+Product Name: jupiter
+Price: 100
+Category: unknown
+----------------------------------------
+
+You: my hands
+
+AI Response:
+----------------------------------------
+Product Name: unknown
+Price: 0
+Category: unknown
+----------------------------------------
+
+You: exit
+
+Goodbye!
+
 
