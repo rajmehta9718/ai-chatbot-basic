@@ -1,21 +1,37 @@
-## Updates
-Wrote a Python program to send input to the OpenAI API (GPT 4 MINI LLM) and print the response.
-Learnt what LLMs, prompts, and tokens are.
+# AI Product Assistant
 
-## Updates
-Added an interactive chatbot with continuous conversation.
-Learnt what a chat is vs a completion.
+A simple Python CLI app that uses the OpenAI API to return structured product information in JSON format.
 
-## Updates
-Changed System rules. Directed the AI to behave in a certain way (funny, rude, sarcastic).
-Learnt what system vs user roles are.
+## Features
+- Takes user input from the command line
+- Uses an OpenAI model to generate product information
+- Returns structured JSON output
+- Parses and displays:
+  - product_name
+  - price
+  - category
+- Handles invalid JSON and API errors
+- Supports continuous interaction with an exit command
 
-## Updates
-Made AI respond in a structured (JSON) format such that the front-end can parse it.
+## Tech Stack
+- Python
+- OpenAI API
+- python-dotenv
 
-## Updates
-Added error handling, rate limiting, and validation checks to AI responses.
-Learned that reliability and availability are important for any AI integration.
+## Setup
+1. Create a virtual environment
+2. Install dependencies:
+   pip install openai python-dotenv
+3. Create a `.env` file:
+   OPENAI_API_KEY=your_api_key_here
+4. Run:
+   python app.py
 
-## Updates
-Polishing the Chatbot UI and making the app feel cleaner and more user-friendly.
+## Example
+Input:
+suggest a product for students
+
+Output:
+- Product Name: Smart Study Lamp
+- Price: 29
+- Category: Education
