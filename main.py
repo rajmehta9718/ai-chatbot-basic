@@ -1,16 +1,40 @@
-import faiss
-import numpy as np
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from fastapi import FastAPI
 from openai import OpenAI
 from dotenv import load_dotenv
-import math
+import faiss
+import numpy as np
+import logging
 
 load_dotenv()
-client = OpenAI()
 
+# -------------------------------
+# Config
+# -------------------------------
+DOCUMENT_FILE = "company.txt"
+EMBEDDING_MODEL = "text-embedding-3-small"
+CHAT_MODEL = "gpt-4o-mini"
+TOP_K = 3
+
+# -------------------------------
+# Logging
+# -------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# -------------------------------
+# App / Client
+# -------------------------------
+client = OpenAI()
 app = FastAPI()
 
+
+# -------------------------------
+# Request / Response Models
+# -------------------------------
 class AskRequest(BaseModel):
     query: str
 
@@ -25,78 +49,107 @@ class AskResponse(BaseModel):
     answer: str
     retrieved_documents: list[Document]
 
+
 # -------------------------------
 # Load documents from file
 # -------------------------------
 def load_documents(filename):
-    with open(filename, "r") as file:
-        lines = file.readlines()
+    try:
+        with open(filename, "r") as file:
+            lines = file.readlines()
 
-    return [line.strip() for line in lines if line.strip()]
+        docs = [line.strip() for line in lines if line.strip()]
+        logger.info(f"Loaded {len(docs)} documents from {filename}")
+        return docs
+
+    except FileNotFoundError:
+        logger.error(f"Document file not found: {filename}")
+        raise
+
+    except Exception as e:
+        logger.error(f"Unexpected error loading documents: {e}")
+        raise
 
 
 # -------------------------------
 # Embedding generation
 # -------------------------------
 def get_embedding(text):
-    response = client.embeddings.create(
-        model="text-embedding-3-small",
-        input=text
-    )
-    return response.data[0].embedding
+    try:
+        response = client.embeddings.create(
+            model=EMBEDDING_MODEL,
+            input=text
+        )
+        return response.data[0].embedding
+
+    except Exception as e:
+        logger.error(f"Embedding generation failed: {e}")
+        raise
 
 
 # -------------------------------
-# Cosine similarity
+# Build FAISS index
 # -------------------------------
-def cosine_similarity(vec1, vec2):
-    dot_product = sum(a * b for a, b in zip(vec1, vec2))
-    norm1 = math.sqrt(sum(a * a for a in vec1))
-    norm2 = math.sqrt(sum(b * b for b in vec2))
-    return dot_product / (norm1 * norm2)
+def build_faiss_index(docs):
+    try:
+        logger.info("Generating embeddings for documents...")
+        doc_embeddings = [get_embedding(doc) for doc in docs]
+        embedding_matrix = np.array(doc_embeddings).astype("float32")
 
+        dimension = embedding_matrix.shape[1]
+        index = faiss.IndexFlatL2(dimension)
+        index.add(embedding_matrix)
 
-# -------------------------------
-# Load dataset and precompute embeddings
-# -------------------------------
-documents = load_documents("company.txt")
-doc_embeddings = [get_embedding(doc) for doc in documents]
-# Convert embeddings to numpy
-embedding_matrix = np.array(doc_embeddings).astype("float32")
+        logger.info(f"FAISS index created with {len(docs)} documents")
+        return index, doc_embeddings
 
-# Create FAISS index
-dimension = embedding_matrix.shape[1]
-index = faiss.IndexFlatL2(dimension)
+    except Exception as e:
+        logger.error(f"Failed to build FAISS index: {e}")
+        raise
 
-# Add vectors to index
-index.add(embedding_matrix)
 
 # -------------------------------
-# Semantic search
+# Startup data
 # -------------------------------
-def search(query, top_k=3):
-    query_embedding = get_embedding(query)
-    query_vector = np.array([query_embedding]).astype("float32")
+documents = load_documents(DOCUMENT_FILE)
+index, doc_embeddings = build_faiss_index(documents)
 
-    distances, indices = index.search(query_vector, top_k)
 
-    results = []
-    for i, idx in enumerate(indices[0]):
-        results.append((documents[idx], distances[0][i]))
+# -------------------------------
+# Semantic search using FAISS
+# -------------------------------
+def search(query, top_k=TOP_K):
+    try:
+        logger.info(f"Running search for query: {query}")
 
-    return results
+        query_embedding = get_embedding(query)
+        query_vector = np.array([query_embedding]).astype("float32")
+
+        distances, indices = index.search(query_vector, top_k)
+
+        results = []
+        for i, idx in enumerate(indices[0]):
+            results.append((documents[idx], float(distances[0][i])))
+
+        logger.info(f"Retrieved {len(results)} documents")
+        return results
+
+    except Exception as e:
+        logger.error(f"Search failed: {e}")
+        raise
+
 
 # -------------------------------
 # Build context from retrieved docs
 # -------------------------------
 def build_context(top_docs):
     return "\n\n".join(
-        [f"Document {i+1}: {doc}" for i, (doc, _) in enumerate(top_docs)]
+        [f"Source {i+1}: {doc}" for i, (doc, _) in enumerate(top_docs)]
     )
 
 
 # -------------------------------
-# Generate answer from context
+# Generate grounded answer
 # -------------------------------
 def generate_answer(query, context):
     prompt = f"""
@@ -118,32 +171,42 @@ Question:
 Return a clear answer based only on the context.
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a careful, grounded company policy assistant."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+    try:
+        response = client.chat.completions.create(
+            model=CHAT_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a careful, grounded company policy assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-    return response.choices[0].message.content
+        return response.choices[0].message.content
+
+    except Exception as e:
+        logger.error(f"Answer generation failed: {e}")
+        raise
 
 
 # -------------------------------
 # Full RAG pipeline
 # -------------------------------
 def rag_answer(query):
-    top_docs = search(query, top_k=3)
-    context = build_context(top_docs)
-    answer = generate_answer(query, context)
+    try:
+        top_docs = search(query, top_k=TOP_K)
+        context = build_context(top_docs)
+        answer = generate_answer(query, context)
 
-    return {
-        "query": query,
-        "answer": answer,
-        "retrieved_documents": [
-            {"document": doc, "score": score} for doc, score in top_docs
-        ]
-    }
+        return {
+            "query": query,
+            "answer": answer,
+            "retrieved_documents": [
+                {"document": doc, "score": score} for doc, score in top_docs
+            ]
+        }
+
+    except Exception as e:
+        logger.error(f"RAG pipeline failed: {e}")
+        raise
 
 
 # -------------------------------
@@ -156,5 +219,10 @@ def health_check():
 
 @app.post("/ask", response_model=AskResponse)
 def ask_question(request: AskRequest):
-    result = rag_answer(request.query)
-    return result
+    try:
+        logger.info(f"Received /ask request: {request.query}")
+        return rag_answer(request.query)
+
+    except Exception as e:
+        logger.error(f"/ask endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
