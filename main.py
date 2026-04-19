@@ -1,3 +1,6 @@
+import time
+from fastapi import Request
+import asyncio
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from openai import OpenAI
@@ -9,12 +12,20 @@ import logging
 load_dotenv()
 
 # -------------------------------
+# Caches
+# -------------------------------
+embedding_cache = {}
+response_cache = {}
+
+# -------------------------------
 # Config
 # -------------------------------
 DOCUMENT_FILE = "company.txt"
 EMBEDDING_MODEL = "text-embedding-3-small"
 CHAT_MODEL = "gpt-4o-mini"
-TOP_K = 3
+TOP_K = 4
+RATE_LIMIT = 5
+WINDOW_SECONDS = 60 
 
 # -------------------------------
 # Logging
@@ -49,6 +60,24 @@ class AskResponse(BaseModel):
     answer: str
     retrieved_documents: list[Document]
 
+client_requests = {}
+def is_rate_limited(client_ip):
+    current_time = time.time()
+
+    if client_ip not in client_requests:
+        client_requests[client_ip] = []
+
+    # remove old requests outside window
+    client_requests[client_ip] = [
+        t for t in client_requests[client_ip]
+        if current_time - t < WINDOW_SECONDS
+    ]
+
+    if len(client_requests[client_ip]) >= RATE_LIMIT:
+        return True
+
+    client_requests[client_ip].append(current_time)
+    return False
 
 # -------------------------------
 # Load documents from file
@@ -70,22 +99,42 @@ def load_documents(filename):
         logger.error(f"Unexpected error loading documents: {e}")
         raise
 
+def chunk_text(text, chunk_size=20, overlap=5):
+    words = text.split()
+    chunks = []
+
+    if overlap >= chunk_size:
+        raise ValueError("overlap must be smaller than chunk_size")
+
+    step = chunk_size - overlap
+
+    for i in range(0, len(words), step):
+        chunk = " ".join(words[i:i + chunk_size])
+        if chunk:
+            chunks.append(chunk)
+
+    return chunks
 
 # -------------------------------
 # Embedding generation
 # -------------------------------
 def get_embedding(text):
+    if text in embedding_cache:
+        logger.info("Embedding cache hit")
+        return embedding_cache[text]
+
     try:
         response = client.embeddings.create(
             model=EMBEDDING_MODEL,
             input=text
         )
-        return response.data[0].embedding
+        embedding = response.data[0].embedding
+        embedding_cache[text] = embedding
+        return embedding
 
     except Exception as e:
         logger.error(f"Embedding generation failed: {e}")
         raise
-
 
 # -------------------------------
 # Build FAISS index
@@ -107,22 +156,44 @@ def build_faiss_index(docs):
         logger.error(f"Failed to build FAISS index: {e}")
         raise
 
+# -------------------------------
+# Chunking
+# -------------------------------
+def chunk_text(text, chunk_size=20, overlap=5):
+    words = text.split()
+    chunks = []
+
+    if overlap >= chunk_size:
+        raise ValueError("overlap must be smaller than chunk_size")
+
+    step = chunk_size - overlap
+
+    for i in range(0, len(words), step):
+        chunk = " ".join(words[i:i + chunk_size])
+        if chunk:
+            chunks.append(chunk)
+
+    return chunks
 
 # -------------------------------
 # Startup data
 # -------------------------------
-documents = load_documents(DOCUMENT_FILE)
+raw_documents = load_documents(DOCUMENT_FILE)
+documents = []
+for doc in raw_documents:
+    chunks = chunk_text(doc, chunk_size=20, overlap=5)
+    documents.extend(chunks)
 index, doc_embeddings = build_faiss_index(documents)
 
 
 # -------------------------------
 # Semantic search using FAISS
 # -------------------------------
-def search(query, top_k=TOP_K):
+async def search(query, top_k=TOP_K):
     try:
         logger.info(f"Running search for query: {query}")
 
-        query_embedding = get_embedding(query)
+        query_embedding = await get_embedding_async(query)
         query_vector = np.array([query_embedding]).astype("float32")
 
         distances, indices = index.search(query_vector, top_k)
@@ -137,7 +208,6 @@ def search(query, top_k=TOP_K):
     except Exception as e:
         logger.error(f"Search failed: {e}")
         raise
-
 
 # -------------------------------
 # Build context from retrieved docs
@@ -161,6 +231,7 @@ Rules:
 - If the answer is not in the context, say "I don't know based on the provided context"
 - Keep the answer concise and professional
 - If multiple sources are relevant, combine them clearly
+- If the context contains only partial information, mention only what is supported
 
 Context:
 {context}
@@ -168,35 +239,40 @@ Context:
 Question:
 {query}
 
-Return a clear answer based only on the context.
+Return a direct answer based only on the context.
 """
 
-    try:
-        response = client.chat.completions.create(
-            model=CHAT_MODEL,
-            messages=[
-                {"role": "system", "content": "You are a careful, grounded company policy assistant."},
-                {"role": "user", "content": prompt}
-            ]
-        )
+    response = client.chat.completions.create(
+        model=CHAT_MODEL,
+        messages=[
+            {"role": "system", "content": "You are a careful, grounded company policy assistant."},
+            {"role": "user", "content": prompt}
+        ]
+    )
 
-        return response.choices[0].message.content
+    return response.choices[0].message.content
 
-    except Exception as e:
-        logger.error(f"Answer generation failed: {e}")
-        raise
+async def get_embedding_async(text):
+    return await asyncio.to_thread(get_embedding, text)
 
+
+async def generate_answer_async(query, context):
+    return await asyncio.to_thread(generate_answer, query, context)
 
 # -------------------------------
 # Full RAG pipeline
 # -------------------------------
-def rag_answer(query):
-    try:
-        top_docs = search(query, top_k=TOP_K)
-        context = build_context(top_docs)
-        answer = generate_answer(query, context)
+async def rag_answer(query):
+    if query in response_cache:
+        logger.info("Response cache hit")
+        return response_cache[query]
 
-        return {
+    try:
+        top_docs = await search(query, top_k=TOP_K)
+        context = build_context(top_docs)
+        answer = await generate_answer_async(query, context)
+
+        result = {
             "query": query,
             "answer": answer,
             "retrieved_documents": [
@@ -204,10 +280,12 @@ def rag_answer(query):
             ]
         }
 
+        response_cache[query] = result
+        return result
+
     except Exception as e:
         logger.error(f"RAG pipeline failed: {e}")
         raise
-
 
 # -------------------------------
 # API endpoints
@@ -218,10 +296,16 @@ def health_check():
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask_question(request: AskRequest):
+async def ask_question(request: AskRequest, req: Request):
+    client_ip = req.client.host
+
+    if is_rate_limited(client_ip):
+        logger.warning(f"Rate limit exceeded for {client_ip}")
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+
     try:
         logger.info(f"Received /ask request: {request.query}")
-        return rag_answer(request.query)
+        return await rag_answer(request.query)
 
     except Exception as e:
         logger.error(f"/ask endpoint failed: {e}")
